@@ -207,6 +207,22 @@ async function run() {
             }
         });
 
+        // Example Express route
+app.delete("/enrollments/:id", async (req, res) => {
+  const id = req.params.id;
+  try {
+    const result = await db.collection("enrollments").deleteOne({ _id: new ObjectId(id) });
+    if (result.deletedCount === 1) {
+      res.status(200).send({ message: "Deleted successfully" });
+    } else {
+      res.status(404).send({ message: "Enrollment not found" });
+    }
+  } catch (err) {
+    res.status(500).send({ message: "Server error" });
+  }
+});
+
+
         // 🔹 Get enrolled courses by user email
         app.get('/my-enrolled-courses/:email', async (req, res) => {
             const { email } = req.params;
@@ -255,44 +271,49 @@ async function run() {
         });
 
         // 🔹 Popular Courses
-        app.get('/popular-courses', async (req, res) => {
-            try {
-                const pipeline = [
-                    {
-                        $group: {
-                            _id: "$courseId",
-                            enrollCount: { $sum: 1 }
-                        }
-                    },
-                    { $sort: { enrollCount: -1 } },
-                    { $limit: 5 },
-                    {
-                        $lookup: {
-                            from: "courses",
-                            localField: "_id",
-                            foreignField: "_id",
-                            as: "course"
-                        }
-                    },
-                    { $unwind: "$course" },
-                    {
-                        $project: {
-                            _id: "$course._id",
-                            courseTitle: "$course.courseTitle",
-                            imageURL: "$course.imageURL",
-                            timestamp: "$course.timestamp",
-                            enrollCount: 1
-                        }
-                    }
-                ];
+app.get('/popular-courses', async (req, res) => {
+  try {
+    const pipeline = [
+      {
+        $group: {
+          _id: "$courseId",
+          enrollCount: { $sum: 1 }
+        }
+      },
+      { $sort: { enrollCount: -1 } },
+      { $limit: 5 },
+      {
+        $addFields: {
+          courseObjectId: { $toObjectId: "$_id" } // convert string to ObjectId
+        }
+      },
+      {
+        $lookup: {
+          from: "courses",
+          localField: "courseObjectId",
+          foreignField: "_id",
+          as: "course"
+        }
+      },
+      { $unwind: "$course" },
+      {
+        $project: {
+          _id: "$course._id",
+          courseTitle: "$course.courseTitle",
+          imageURL: "$course.imageURL",
+          timestamp: "$course.timestamp",
+          enrollCount: 1
+        }
+      }
+    ];
 
-                const popularCourses = await enrollmentsCollection.aggregate(pipeline).toArray();
-                res.json(popularCourses);
-            } catch (error) {
-                console.error('❌ Failed to fetch popular courses:', error);
-                res.status(500).json({ error: 'Internal Server Error' });
-            }
-        });
+    const popularCourses = await enrollmentsCollection.aggregate(pipeline).toArray();
+    res.json(popularCourses);
+  } catch (error) {
+    console.error('❌ Failed to fetch popular courses:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
 
     } catch (err) {
         console.error("❌ Server error:", err);
