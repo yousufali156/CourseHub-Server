@@ -1,167 +1,3 @@
-// // index.js
-
-// const express = require('express');
-// const cors = require('cors');
-// require('dotenv').config();
-// const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-// const admin = require('firebase-admin');
-// const app = express();
-// const port = process.env.PORT || 3000;
-
-// // ✅ Middleware
-// app.use(cors());
-// app.use(express.json());
-
-// // ✅ Firebase Admin Initialization
-// const serviceAccount = require('./serviceAccountKey.json');
-// admin.initializeApp({
-//     credential: admin.credential.cert(serviceAccount),
-// });
-
-// // ✅ MongoDB Connection
-
-
-// const uri = `mongodb+srv://${process.env.MDB_USER}:${process.env.MDB_PASS}@cluster0.mr3w9gn.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
-
-
-
-
-// const client = new MongoClient(uri, {
-//     serverApi: {
-//         version: ServerApiVersion.v1,
-//         strict: true,
-//         deprecationErrors: true,
-//     },
-// });
-
-// async function run() {
-//     try {
-//         await client.connect();
-//         const db = client.db('coursehub_db');
-//         const coursesCollection = db.collection('courses');
-//         const enrollsCollection = db.collection('enrolls');
-//         const usersCollection = db.collection('users');
-
-//         // 🔹 Health Check Route
-//         app.get('/', (req, res) => {
-//             res.send('✅ CourseHub Server is Running!');
-//         });
-
-//         // 🔹 Get All Courses
-//         app.get('/courses', async (req, res) => {
-//             const result = await coursesCollection.find().toArray();
-//             res.send(result);
-//         });
-
-//         // 🔹 Get Top 6 Courses
-//         app.get('/courses/top', async (req, res) => {
-//             const result = await coursesCollection.find().limit(6).toArray();
-//             res.send(result);
-//         });
-
-//         // 🔹 Get Single Course
-//         app.get('/courses/:id', async (req, res) => {
-//             const id = req.params.id;
-//             const result = await coursesCollection.findOne({ _id: new ObjectId(id) });
-//             res.send(result);
-//         });
-
-//         // 🔹 Add New Course
-//         app.post('/courses', async (req, res) => {
-//             const newCourse = req.body;
-//             const result = await coursesCollection.insertOne(newCourse);
-//             res.send(result);
-//         });
-
-//         // 🔹 Add New Course
-//         app.post('/enrolls', async (req, res) => {
-//             const newCourse = req.body;
-//             const result = await enrollsCollection.insertOne(newCourse);
-//             res.send(result);
-//         });
-
-//         app.post('/api/courses', async (req, res) => {
-//             const course = req.body;
-//             if (!course.firebaseId) {
-//                 return res.status(400).json({ error: 'firebaseId missing' });
-//             }
-//             try {
-//                 const result = await coursesCollection.insertOne(course);
-//                 res.status(201).json({ message: 'Course saved in MongoDB', result });
-//             } catch (err) {
-//                 res.status(500).json({ error: 'Failed to save course' });
-//             }
-//         });
-
-//         // 🔹 Update Course
-//         app.put('/courses/:id', async (req, res) => {
-//             const id = req.params.id;
-//             const updatedCourse = req.body;
-//             const result = await coursesCollection.updateOne(
-//                 { _id: new ObjectId(id) },
-//                 {
-//                     $set: {
-//                         courseTitle: updatedCourse.courseTitle,
-//                         imageURL: updatedCourse.imageURL,
-//                         seats: updatedCourse.seats,
-//                         duration: updatedCourse.duration,
-//                         instructorName: updatedCourse.instructorName,
-//                         instructorEmail: updatedCourse.instructorEmail,
-//                         enrollmentCount: updatedCourse.enrollmentCount,
-//                         rating: updatedCourse.rating,
-//                         shortDescription: updatedCourse.shortDescription,
-//                         fullDescription: updatedCourse.fullDescription,
-//                         timestamp: updatedCourse.timestamp,
-//                     },
-//                 }
-//             );
-//             res.send(result);
-//         });
-
-//         // 🔹 Delete Course
-//         app.delete('/courses/:id', async (req, res) => {
-//             const id = req.params.id;
-//             const result = await coursesCollection.deleteOne({ _id: new ObjectId(id) });
-//             res.send(result);
-//         });
-
-//         // DELETE from MongoDB mmmmmmmmmmmmmmmmmmmmmmmm
-//         app.delete('/api/courses/:id', async (req, res) => {
-//             try {
-//                 const { id } = req.params;
-//                 const result = await coursesCollection.deleteOne({ firebaseId: id });
-//                 res.status(200).json({ message: 'Deleted from MongoDB', result });
-//             } catch (err) {
-//                 res.status(500).json({ error: 'Failed to delete from MongoDB' });
-//             }
-//         });
-
-//         // 🔹 Add User
-//         app.post('/users', async (req, res) => {
-//             const user = req.body;
-//             const existing = await usersCollection.findOne({ email: user.email });
-//             if (existing) {
-//                 return res.status(409).send({ message: 'User already exists' });
-//             }
-//             const result = await usersCollection.insertOne(user);
-//             res.send(result);
-//         });
-
-//         console.log("✅ MongoDB connected. Server ready.");
-//     } catch (err) {
-//         console.error("❌ Server error:", err);
-//     }
-// }
-
-// run().catch(console.dir);
-
-// // ✅ Start Server
-// app.listen(port, () => {
-//     console.log(`🚀 Server running at http://localhost:${port}`);
-// });
-
-
-
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
@@ -179,8 +15,6 @@ const serviceAccount = require('./serviceAccountKey.json');
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
 });
-
-// const { ObjectId } = require('mongodb');
 
 // ✅ MongoDB Connection
 const uri = `mongodb+srv://${process.env.MDB_USER}:${process.env.MDB_PASS}@cluster0.mr3w9gn.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -218,7 +52,19 @@ async function run() {
             res.send(result);
         });
 
-        // ✅ Add New Course (Matches AddCourse Component)
+        // 🔹 Get Single Course
+        app.get('/courses/:id', async (req, res) => {
+            try {
+                const courseId = req.params.id;
+                const course = await coursesCollection.findOne({ _id: new ObjectId(courseId) });
+                if (!course) return res.status(404).json({ error: 'Course not found' });
+                res.json(course);
+            } catch (error) {
+                res.status(500).json({ error: 'Failed to fetch course' });
+            }
+        });
+
+        // 🔹 Add New Course
         app.post('/courses', async (req, res) => {
             try {
                 const {
@@ -258,7 +104,22 @@ async function run() {
             }
         });
 
+        // 🔹 Update Course
+        app.put('/course/:id', async (req, res) => {
+            try {
+                const updatedData = req.body;
+                const result = await coursesCollection.updateOne(
+                    { _id: new ObjectId(req.params.id) },
+                    { $set: { ...updatedData, updatedAt: new Date() } }
+                );
+                if (result.modifiedCount === 0) return res.status(404).send({ error: 'Course not updated' });
+                res.send({ message: 'Course updated' });
+            } catch (error) {
+                res.status(500).send({ error: 'Update failed' });
+            }
+        });
 
+        // 🔹 Delete Course
         app.delete('/courses/:id', async (req, res) => {
             const id = req.params.id;
             try {
@@ -273,36 +134,165 @@ async function run() {
             }
         });
 
-        // Get course by ID
-        app.get('/course/:id', async (req, res) => {
+        // 🔹 Enroll API
+        app.post('/enrollments', async (req, res) => {
             try {
-                const course = await db.collection('courses').findOne({ _id: new ObjectId(req.params.id) });
-                if (!course) return res.status(404).send({ error: 'Course not found' });
-                res.send(course);
-            } catch (error) {
-                res.status(500).send({ error: 'Failed to fetch course' });
-            }
-        });
+                const { userEmail, courseId, courseTitle } = req.body;
 
-        // Update course by ID
-        app.put('/course/:id', async (req, res) => {
-            try {
-                const updatedData = req.body;
-                const result = await db.collection('courses').updateOne(
-                    { _id: new ObjectId(req.params.id) },
-                    { $set: { ...updatedData, updatedAt: new Date() } }
+                if (!userEmail || !courseId) {
+                    return res.status(400).json({ error: 'Missing required fields' });
+                }
+
+                const existing = await enrollmentsCollection.findOne({ userEmail, courseId });
+                if (existing) {
+                    return res.status(400).json({ error: 'Already enrolled in this course' });
+                }
+
+                const userEnrollments = await enrollmentsCollection.find({ userEmail }).toArray();
+                if (userEnrollments.length >= 3) {
+                    return res.status(400).json({ error: 'Cannot enroll in more than 3 courses' });
+                }
+
+                const course = await coursesCollection.findOne({ _id: new ObjectId(courseId) });
+                if (!course) return res.status(404).json({ error: 'Course not found' });
+
+                if (course.seats <= 0) {
+                    return res.status(400).json({ error: 'No seats left' });
+                }
+
+                await enrollmentsCollection.insertOne({
+                    userEmail,
+                    courseId,
+                    courseTitle,
+                    enrolledAt: new Date(),
+                });
+
+                await coursesCollection.updateOne(
+                    { _id: new ObjectId(courseId) },
+                    { $inc: { seats: -1 } }
                 );
-                if (result.modifiedCount === 0) return res.status(404).send({ error: 'Course not updated' });
-                res.send({ message: 'Course updated' });
+
+                res.status(201).json({ message: 'Enrolled successfully' });
             } catch (error) {
-                res.status(500).send({ error: 'Update failed' });
+                console.error('Enroll API error:', error);
+                res.status(500).json({ error: 'Enrollment failed' });
             }
         });
 
-        
+        // 🔹 ✅ Unenroll using body data
+        app.delete('/enrollments', async (req, res) => {
+            const { userEmail, courseId } = req.body;
 
+            if (!userEmail || !courseId) {
+                return res.status(400).json({ error: 'userEmail and courseId are required' });
+            }
 
-       
+            try {
+                const result = await enrollmentsCollection.deleteOne({ userEmail, courseId });
+
+                if (result.deletedCount === 0) {
+                    return res.status(404).json({ error: 'Enrollment not found' });
+                }
+
+                // Increase seat count in course
+                await coursesCollection.updateOne(
+                    { _id: new ObjectId(courseId) },
+                    { $inc: { seats: 1 } }
+                );
+
+                res.json({ message: 'Unenrolled successfully and seat count updated' });
+            } catch (err) {
+                console.error('❌ Failed to unenroll:', err);
+                res.status(500).json({ error: 'Failed to unenroll' });
+            }
+        });
+
+        // 🔹 Get enrolled courses by user email
+        app.get('/my-enrolled-courses/:email', async (req, res) => {
+            const { email } = req.params;
+
+            try {
+                const enrollments = await enrollmentsCollection
+                    .find({ userEmail: email })
+                    .toArray();
+
+                res.json(enrollments);
+            } catch (err) {
+                console.error('Failed to fetch enrollments:', err);
+                res.status(500).json({ error: 'Failed to fetch enrollments' });
+            }
+        });
+
+        // 🔹 Unenroll (older route)
+        app.delete('/my-enrolled-courses/:email/:courseId', async (req, res) => {
+            const { email, courseId } = req.params;
+
+            try {
+                const result = await enrollmentsCollection.deleteOne({ userEmail: email, courseId });
+                res.json({ success: result.deletedCount > 0 });
+            } catch (err) {
+                console.error('Failed to remove enrollment:', err);
+                res.status(500).json({ error: 'Failed to remove enrollment' });
+            }
+        });
+
+        // 🔹 Increase seat count after unenroll
+        app.patch('/courses/:id/seats', async (req, res) => {
+            const courseId = req.params.id;
+            const increment = req.body.increment || 1;
+
+            try {
+                const result = await coursesCollection.updateOne(
+                    { _id: new ObjectId(courseId) },
+                    { $inc: { seats: increment } }
+                );
+
+                res.json({ success: true, modifiedCount: result.modifiedCount });
+            } catch (err) {
+                console.error('Failed to update seat count:', err);
+                res.status(500).json({ error: 'Failed to update seat count' });
+            }
+        });
+
+        // 🔹 Popular Courses
+        app.get('/popular-courses', async (req, res) => {
+            try {
+                const pipeline = [
+                    {
+                        $group: {
+                            _id: "$courseId",
+                            enrollCount: { $sum: 1 }
+                        }
+                    },
+                    { $sort: { enrollCount: -1 } },
+                    { $limit: 5 },
+                    {
+                        $lookup: {
+                            from: "courses",
+                            localField: "_id",
+                            foreignField: "_id",
+                            as: "course"
+                        }
+                    },
+                    { $unwind: "$course" },
+                    {
+                        $project: {
+                            _id: "$course._id",
+                            courseTitle: "$course.courseTitle",
+                            imageURL: "$course.imageURL",
+                            timestamp: "$course.timestamp",
+                            enrollCount: 1
+                        }
+                    }
+                ];
+
+                const popularCourses = await enrollmentsCollection.aggregate(pipeline).toArray();
+                res.json(popularCourses);
+            } catch (error) {
+                console.error('❌ Failed to fetch popular courses:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        });
 
     } catch (err) {
         console.error("❌ Server error:", err);
