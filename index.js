@@ -83,7 +83,7 @@ let db, coursesCollection, usersCollection, enrollmentsCollection;
 
 async function run() {
     try {
-        await client.connect();
+        // await client.connect();
         db = client.db('coursehub_db');
         coursesCollection = db.collection('courses');
         usersCollection = db.collection('users');
