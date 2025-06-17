@@ -9,11 +9,11 @@ const jwt = require('jsonwebtoken');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Middleware
 app.use(cors({
-    origin: ['http://localhost:5173', 'https://your-deployed-site.com'],
+    origin: [process.env.CLIENT_URL, 'http://localhost:5173'],
     credentials: true
 }));
+
 app.use(cookieParser());
 app.use(express.json());
 
@@ -254,62 +254,62 @@ async function run() {
         });
 
         // ✅ PATCH: Update seats for a course (Better Practice: Backend handles seat change)
-app.patch('/courses/:id/seats', verifyJWT, async (req, res) => {
-    const { id } = req.params;
-    const { increment } = req.body; // expected: +1 or -1
+        app.patch('/courses/:id/seats', verifyJWT, async (req, res) => {
+            const { id } = req.params;
+            const { increment } = req.body; // expected: +1 or -1
 
-    if (typeof increment !== 'number') {
-        return res.status(400).json({ error: 'Missing or invalid increment value' });
-    }
+            if (typeof increment !== 'number') {
+                return res.status(400).json({ error: 'Missing or invalid increment value' });
+            }
 
-    try {
-        const result = await coursesCollection.updateOne(
-            { _id: new ObjectId(id) },
-            { $inc: { seats: increment } }
-        );
+            try {
+                const result = await coursesCollection.updateOne(
+                    { _id: new ObjectId(id) },
+                    { $inc: { seats: increment } }
+                );
 
-        if (result.modifiedCount === 0) {
-            return res.status(404).json({ error: 'Course not found or seat not updated' });
-        }
+                if (result.modifiedCount === 0) {
+                    return res.status(404).json({ error: 'Course not found or seat not updated' });
+                }
 
-        res.json({ message: 'Seat count updated successfully' });
-    } catch (err) {
-        console.error('❌ Seat update failed:', err);
-        res.status(500).json({ error: 'Seat update failed' });
-    }
-});
+                res.json({ message: 'Seat count updated successfully' });
+            } catch (err) {
+                console.error('❌ Seat update failed:', err);
+                res.status(500).json({ error: 'Seat update failed' });
+            }
+        });
 
-// Unenroll a user from a course (toggle off)
-app.delete('/enrollments/:email/:courseId', async (req, res) => {
-  const { email, courseId } = req.params;
+        // Unenroll a user from a course (toggle off)
+        app.delete('/enrollments/:email/:courseId', async (req, res) => {
+            const { email, courseId } = req.params;
 
-  try {
-    // Delete enrollment document
-    const result = await enrollmentsCollection.deleteOne({
-      userEmail: email,
-      courseId: courseId,
-    });
+            try {
+                // Delete enrollment document
+                const result = await enrollmentsCollection.deleteOne({
+                    userEmail: email,
+                    courseId: courseId,
+                });
 
-    if (result.deletedCount === 0) {
-      return res.status(404).json({ error: 'Enrollment not found' });
-    }
+                if (result.deletedCount === 0) {
+                    return res.status(404).json({ error: 'Enrollment not found' });
+                }
 
-    // Increase seat count back by 1
-    const updateRes = await coursesCollection.updateOne(
-      { _id: new ObjectId(courseId) },
-      { $inc: { seats: 1 } }
-    );
+                // Increase seat count back by 1
+                const updateRes = await coursesCollection.updateOne(
+                    { _id: new ObjectId(courseId) },
+                    { $inc: { seats: 1 } }
+                );
 
-    if (updateRes.modifiedCount === 0) {
-      return res.status(500).json({ error: 'Failed to update course seat count' });
-    }
+                if (updateRes.modifiedCount === 0) {
+                    return res.status(500).json({ error: 'Failed to update course seat count' });
+                }
 
-    res.json({ message: 'Enrollment cancelled and seat updated' });
-  } catch (err) {
-    console.error('Error in unenrollment:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+                res.json({ message: 'Enrollment cancelled and seat updated' });
+            } catch (err) {
+                console.error('Error in unenrollment:', err);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
 
 
         // ✅ NEW DELETE ROUTE TO FIX FRONTEND ERROR
