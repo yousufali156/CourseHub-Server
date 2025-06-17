@@ -1,23 +1,75 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 require('dotenv').config();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const admin = require('firebase-admin');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// 🔹 Middleware
-app.use(cors());
+// Middleware
+app.use(cors({
+    origin: ['http://localhost:5173', 'https://your-deployed-site.com'],
+    credentials: true
+}));
+app.use(cookieParser());
 app.use(express.json());
 
-// 🔹 Firebase Admin Initialization
+// Firebase Admin Initialization
 const serviceAccount = require('./serviceAccountKey.json');
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
 });
 
-// 🔹 MongoDB Connection
+// JWT Verify Middleware
+const verifyJWT = (req, res, next) => {
+    const token = req.cookies.token;
+    if (!token) return res.status(401).send({ error: true, message: 'Unauthorized' });
+
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (err) return res.status(403).send({ error: true, message: 'Forbidden access' });
+        req.decoded = decoded;
+        next();
+    });
+};
+
+// Issue JWT Cookie after Firebase verification
+app.post('/jwt', async (req, res) => {
+    const { token: firebaseToken } = req.body;
+    if (!firebaseToken) return res.status(400).send({ error: true, message: "Missing Firebase ID token" });
+
+    try {
+        const decodedToken = await admin.auth().verifyIdToken(firebaseToken);
+        const user = { email: decodedToken.email, uid: decodedToken.uid };
+        const customJwt = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+        res.cookie('token', customJwt, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        });
+
+        res.send({ success: true });
+    } catch (err) {
+        console.error("❌ Firebase token verify failed:", err);
+        res.status(401).send({ error: true, message: "Invalid Firebase token" });
+    }
+});
+
+// Logout
+app.post('/logout', (req, res) => {
+    res.clearCookie('token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+    });
+    res.send({ success: true });
+});
+
+// MongoDB Setup
 const uri = `mongodb+srv://${process.env.MDB_USER}:${process.env.MDB_PASS}@cluster0.mr3w9gn.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 const client = new MongoClient(uri, {
     serverApi: {
@@ -29,7 +81,6 @@ const client = new MongoClient(uri, {
 
 let db, coursesCollection, usersCollection, enrollmentsCollection;
 
-// 🔸 Main Function
 async function run() {
     try {
         await client.connect();
@@ -40,12 +91,11 @@ async function run() {
 
         console.log("✅ MongoDB connected. Server ready.");
 
-        // 🔹 Health Check Route
         app.get('/', (req, res) => {
             res.send('✅ CourseHub Server is Running!');
         });
 
-        // 🔹 Course Routes
+        // --- Course Routes ---
         app.get('/courses', async (req, res) => {
             const result = await coursesCollection.find().toArray();
             res.send(result);
@@ -113,71 +163,81 @@ async function run() {
             }
         });
 
-        // 🔹 Enrollment Routes
-        app.post('/enrollments', async (req, res) => {
+        // --- Enrollment Routes ---
+        app.post('/enrollments', verifyJWT, async (req, res) => {
             try {
+                const decoded = req.decoded;
                 const { userEmail, courseId, courseTitle } = req.body;
 
-                if (!userEmail || !courseId) return res.status(400).json({ error: 'Missing required fields' });
+                if (decoded.email !== userEmail) {
+                    return res.status(403).json({ error: 'Unauthorized email' });
+                }
 
                 const existing = await enrollmentsCollection.findOne({ userEmail, courseId });
-                if (existing) return res.status(400).json({ error: 'Already enrolled' });
+                if (existing) {
+                    return res.status(400).json({ error: 'Already enrolled', enrolledId: existing._id });
+                }
 
                 const userEnrollments = await enrollmentsCollection.find({ userEmail }).toArray();
-                if (userEnrollments.length >= 3) return res.status(400).json({ error: 'Max 3 enrollments allowed' });
+                if (userEnrollments.length >= 3) {
+                    return res.status(400).json({ error: 'Max 3 enrollments allowed' });
+                }
 
                 const course = await coursesCollection.findOne({ _id: new ObjectId(courseId) });
                 if (!course) return res.status(404).json({ error: 'Course not found' });
-                if (course.seats <= 0) return res.status(400).json({ error: 'No seats left' });
 
-                await enrollmentsCollection.insertOne({ userEmail, courseId, courseTitle, enrolledAt: new Date() });
+                if (course.seats <= 0) {
+                    return res.status(400).json({ error: 'No seats left' });
+                }
+
+                const result = await enrollmentsCollection.insertOne({
+                    userEmail,
+                    courseId,
+                    courseTitle,
+                    enrolledAt: new Date(),
+                });
 
                 await coursesCollection.updateOne(
                     { _id: new ObjectId(courseId) },
                     { $inc: { seats: -1 } }
                 );
 
-                res.status(201).json({ message: 'Enrolled successfully' });
+                res.status(201).json({ message: 'Enrolled successfully', enrolledId: result.insertedId });
             } catch (err) {
                 console.error('❌ Enroll error:', err);
                 res.status(500).json({ error: 'Enrollment failed' });
             }
         });
 
-        app.delete('/enrollments', async (req, res) => {
-            const { userEmail, courseId } = req.body;
-            if (!userEmail || !courseId) return res.status(400).json({ error: 'Missing data' });
+        app.get('/enrolled-status', verifyJWT, async (req, res) => {
+            const decoded = req.decoded;
+            const { email, courseId } = req.query;
+
+            if (decoded.email !== email) {
+                return res.status(403).json({ error: 'Unauthorized access' });
+            }
 
             try {
-                const result = await enrollmentsCollection.deleteOne({ userEmail, courseId });
-                if (result.deletedCount === 0) return res.status(404).json({ error: 'Enrollment not found' });
-
-                await coursesCollection.updateOne(
-                    { _id: new ObjectId(courseId) },
-                    { $inc: { seats: 1 } }
-                );
-
-                res.json({ message: 'Unenrolled successfully' });
+                const enrollment = await enrollmentsCollection.findOne({ userEmail: email, courseId });
+                if (enrollment) {
+                    return res.json({ enrolled: true, enrollmentId: enrollment._id });
+                } else {
+                    return res.json({ enrolled: false });
+                }
             } catch (err) {
-                console.error('❌ Unenroll failed:', err);
-                res.status(500).json({ error: 'Unenrollment failed' });
+                console.error('❌ Enrolled status error:', err);
+                res.status(500).json({ error: 'Check failed' });
             }
         });
 
-        app.delete('/enrollments/:id', async (req, res) => {
-            try {
-                const result = await enrollmentsCollection.deleteOne({ _id: new ObjectId(req.params.id) });
-                if (result.deletedCount === 0) return res.status(404).json({ message: 'Enrollment not found' });
-                res.status(200).send({ message: "Deleted successfully" });
-            } catch {
-                res.status(500).send({ message: "Server error" });
-            }
-        });
+        app.get('/my-enrolled-courses/:email', verifyJWT, async (req, res) => {
+            const decoded = req.decoded;
+            const email = req.params.email;
+            if (decoded.email !== email) return res.status(403).json({ error: 'Unauthorized access' });
 
-        app.get('/my-enrolled-courses/:email', async (req, res) => {
             try {
                 const enrollments = await enrollmentsCollection
-                    .find({ userEmail: req.params.email })
+                    .find({ userEmail: email })
                     .project({ _id: 1, userEmail: 1, courseId: 1, courseTitle: 1, enrolledAt: 1 })
                     .toArray();
 
@@ -193,46 +253,89 @@ async function run() {
             }
         });
 
-        app.delete('/my-enrolled-courses/:email/:courseId', async (req, res) => {
-            try {
-                const result = await enrollmentsCollection.deleteOne({
-                    userEmail: req.params.email,
-                    courseId: req.params.courseId
-                });
-                res.json({ success: result.deletedCount > 0 });
-            } catch (err) {
-                res.status(500).json({ error: 'Unenroll failed' });
-            }
-        });
+        // ✅ PATCH: Update seats for a course (Better Practice: Backend handles seat change)
+app.patch('/courses/:id/seats', verifyJWT, async (req, res) => {
+    const { id } = req.params;
+    const { increment } = req.body; // expected: +1 or -1
 
-        app.patch('/courses/:id/seats', async (req, res) => {
-            const increment = req.body.increment || 1;
+    if (typeof increment !== 'number') {
+        return res.status(400).json({ error: 'Missing or invalid increment value' });
+    }
+
+    try {
+        const result = await coursesCollection.updateOne(
+            { _id: new ObjectId(id) },
+            { $inc: { seats: increment } }
+        );
+
+        if (result.modifiedCount === 0) {
+            return res.status(404).json({ error: 'Course not found or seat not updated' });
+        }
+
+        res.json({ message: 'Seat count updated successfully' });
+    } catch (err) {
+        console.error('❌ Seat update failed:', err);
+        res.status(500).json({ error: 'Seat update failed' });
+    }
+});
+
+// Unenroll a user from a course (toggle off)
+app.delete('/enrollments/:email/:courseId', async (req, res) => {
+  const { email, courseId } = req.params;
+
+  try {
+    // Delete enrollment document
+    const result = await enrollmentsCollection.deleteOne({
+      userEmail: email,
+      courseId: courseId,
+    });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Enrollment not found' });
+    }
+
+    // Increase seat count back by 1
+    const updateRes = await coursesCollection.updateOne(
+      { _id: new ObjectId(courseId) },
+      { $inc: { seats: 1 } }
+    );
+
+    if (updateRes.modifiedCount === 0) {
+      return res.status(500).json({ error: 'Failed to update course seat count' });
+    }
+
+    res.json({ message: 'Enrollment cancelled and seat updated' });
+  } catch (err) {
+    console.error('Error in unenrollment:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+        // ✅ NEW DELETE ROUTE TO FIX FRONTEND ERROR
+        app.delete('/enrollments', verifyJWT, async (req, res) => {
+            const { userEmail, courseId } = req.body;
+
             try {
-                const result = await coursesCollection.updateOne(
-                    { _id: new ObjectId(req.params.id) },
-                    { $inc: { seats: increment } }
+                const enrollment = await enrollmentsCollection.findOne({ userEmail, courseId });
+                if (!enrollment) {
+                    return res.status(404).json({ error: 'Enrollment not found' });
+                }
+
+                await enrollmentsCollection.deleteOne({ _id: enrollment._id });
+
+                await coursesCollection.updateOne(
+                    { _id: new ObjectId(courseId) },
+                    { $inc: { seats: 1 } }
                 );
-                res.json({ success: true, modifiedCount: result.modifiedCount });
+
+                res.json({ message: 'Unenrolled successfully' });
             } catch (err) {
-                res.status(500).json({ error: 'Seat update failed' });
+                console.error('❌ Unenroll failed:', err);
+                res.status(500).json({ error: 'Unenrollment failed' });
             }
         });
 
-        app.get('/courses/:id/with-seat-info', async (req, res) => {
-            try {
-                const course = await coursesCollection.findOne({ _id: new ObjectId(req.params.id) });
-                if (!course) return res.status(404).json({ error: 'Course not found' });
-
-                const enrollCount = await enrollmentsCollection.countDocuments({ courseId: req.params.id });
-                const seatsLeft = course.seats - enrollCount;
-
-                res.json({ ...course, seatsLeft });
-            } catch (err) {
-                res.status(500).json({ error: 'Seat info fetch failed' });
-            }
-        });
-
-        // 🔹 Popular Courses
         app.get('/popular-courses', async (req, res) => {
             try {
                 const pipeline = [
@@ -274,7 +377,6 @@ async function run() {
 
 run().catch(console.dir);
 
-// 🔹 Start Server
 app.listen(port, () => {
     console.log(`🚀 Server running at http://localhost:${port}`);
 });
