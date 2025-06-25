@@ -280,61 +280,37 @@ async function run() {
         });
 
         // Unenroll a user from a course (toggle off)
-        app.delete('/enrollments/:email/:courseId', async (req, res) => {
-            const { email, courseId } = req.params;
+       // ✅ Unenroll route now protected with verifyJWT
+app.delete('/enrollments/:email/:courseId', verifyJWT, async (req, res) => {
+  const { email, courseId } = req.params;
+  const decoded = req.decoded;
 
-            try {
-                // Delete enrollment document
-                const result = await enrollmentsCollection.deleteOne({
-                    userEmail: email,
-                    courseId: courseId,
-                });
+  if (decoded.email !== email) {
+    return res.status(403).json({ error: 'Unauthorized access' });
+  }
 
-                if (result.deletedCount === 0) {
-                    return res.status(404).json({ error: 'Enrollment not found' });
-                }
+  try {
+    const result = await enrollmentsCollection.deleteOne({ userEmail: email, courseId });
 
-                // Increase seat count back by 1
-                const updateRes = await coursesCollection.updateOne(
-                    { _id: new ObjectId(courseId) },
-                    { $inc: { seats: 1 } }
-                );
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Enrollment not found' });
+    }
 
-                if (updateRes.modifiedCount === 0) {
-                    return res.status(500).json({ error: 'Failed to update course seat count' });
-                }
+    await coursesCollection.updateOne(
+      { _id: new ObjectId(courseId) },
+      { $inc: { seats: 1 } }
+    );
 
-                res.json({ message: 'Enrollment cancelled and seat updated' });
-            } catch (err) {
-                console.error('Error in unenrollment:', err);
-                res.status(500).json({ error: 'Internal server error' });
-            }
-        });
+    res.json({ message: 'Enrollment cancelled and seat updated' });
+  } catch (err) {
+    console.error('Error in unenrollment:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 
         // ✅ NEW DELETE ROUTE TO FIX FRONTEND ERROR
-        app.delete('/enrollments', verifyJWT, async (req, res) => {
-            const { userEmail, courseId } = req.body;
-
-            try {
-                const enrollment = await enrollmentsCollection.findOne({ userEmail, courseId });
-                if (!enrollment) {
-                    return res.status(404).json({ error: 'Enrollment not found' });
-                }
-
-                await enrollmentsCollection.deleteOne({ _id: enrollment._id });
-
-                await coursesCollection.updateOne(
-                    { _id: new ObjectId(courseId) },
-                    { $inc: { seats: 1 } }
-                );
-
-                res.json({ message: 'Unenrolled successfully' });
-            } catch (err) {
-                console.error('❌ Unenroll failed:', err);
-                res.status(500).json({ error: 'Unenrollment failed' });
-            }
-        });
+       
 
         app.get('/popular-courses', async (req, res) => {
             try {
