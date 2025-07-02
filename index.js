@@ -9,6 +9,7 @@ const jwt = require('jsonwebtoken');
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Use cors for manage Local host and live host
 app.use(cors({
     origin: [process.env.CLIENT_URL, 'http://localhost:5173'],
     credentials: true
@@ -280,37 +281,37 @@ async function run() {
         });
 
         // Unenroll a user from a course (toggle off)
-       // ✅ Unenroll route now protected with verifyJWT
-app.delete('/enrollments/:email/:courseId', verifyJWT, async (req, res) => {
-  const { email, courseId } = req.params;
-  const decoded = req.decoded;
+        // ✅ Unenroll route now protected with verifyJWT
+        app.delete('/enrollments/:email/:courseId', verifyJWT, async (req, res) => {
+            const { email, courseId } = req.params;
+            const decoded = req.decoded;
 
-  if (decoded.email !== email) {
-    return res.status(403).json({ error: 'Unauthorized access' });
-  }
+            if (decoded.email !== email) {
+                return res.status(403).json({ error: 'Unauthorized access' });
+            }
 
-  try {
-    const result = await enrollmentsCollection.deleteOne({ userEmail: email, courseId });
+            try {
+                const result = await enrollmentsCollection.deleteOne({ userEmail: email, courseId });
 
-    if (result.deletedCount === 0) {
-      return res.status(404).json({ error: 'Enrollment not found' });
-    }
+                if (result.deletedCount === 0) {
+                    return res.status(404).json({ error: 'Enrollment not found' });
+                }
 
-    await coursesCollection.updateOne(
-      { _id: new ObjectId(courseId) },
-      { $inc: { seats: 1 } }
-    );
+                await coursesCollection.updateOne(
+                    { _id: new ObjectId(courseId) },
+                    { $inc: { seats: 1 } }
+                );
 
-    res.json({ message: 'Enrollment cancelled and seat updated' });
-  } catch (err) {
-    console.error('Error in unenrollment:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+                res.json({ message: 'Enrollment cancelled and seat updated' });
+            } catch (err) {
+                console.error('Error in unenrollment:', err);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
 
 
         // ✅ NEW DELETE ROUTE TO FIX FRONTEND ERROR
-       
+
 
         app.get('/popular-courses', async (req, res) => {
             try {
