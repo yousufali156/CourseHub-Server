@@ -138,7 +138,7 @@ async function run() {
                 res.status(500).json({ error: 'Internal server error' });
             }
         });
-
+        //  put method add
         app.put('/course/:id', async (req, res) => {
             try {
                 const updatedData = req.body;
@@ -209,7 +209,7 @@ async function run() {
                 res.status(500).json({ error: 'Enrollment failed' });
             }
         });
-
+        // enrolled-status added
         app.get('/enrolled-status', verifyJWT, async (req, res) => {
             const decoded = req.decoded;
             const { email, courseId } = req.query;
