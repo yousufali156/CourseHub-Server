@@ -5,7 +5,7 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 require('dotenv').config();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-const admin = require('firebase-admin');
+const admin = require('./firebaseAdmin');
 const jwt = require('jsonwebtoken');
 
 const app = express();
