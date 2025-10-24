@@ -4,9 +4,9 @@ This is the **server-side** of the Course Management System web application. It 
 
 ---
 
-## 🔗 Live Server URL
+## 🔗 Live URL
 
-> 🌐[ https://your-server-domain.vercel.app](https://coursehub-7fd47.web.app/)
+> 🌐[Live Site](https://coursehub-7fd47.web.app/)
 
 ---
 
